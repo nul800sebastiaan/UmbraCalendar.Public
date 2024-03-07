@@ -1,0 +1,20 @@
+﻿@using UmbraCalendar.Meetup.Controllers
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<UmbraCalendar.Meetup.Models.Groups.AddInfoModel>
+@{
+	Layout = "Main.cshtml";
+}
+<h2>Update group @Model.Group.Name</h2>
+@using (Html.BeginUmbracoForm<MeetupUpdateInfoController>("EditAction"))
+{
+    <input type="hidden" id="groupId" name="id" value="@Model.Group.id"/>
+    
+    <select id="groupArea" name="area">
+        <option name="" value="" selected="@(string.IsNullOrWhiteSpace(Model.Group.Area) ? "selected" : null)"></option>
+        @foreach (var area in Model.MeetupAreas)
+        {
+            <option name="@area.Code" value="@area.Code" selected="@(Model.Group.Area == @area.Code ? "selected" : null)">@area.Name</option>            
+        }
+    </select>
+    
+    <input type="submit" />
+}

@@ -1,0 +1,18 @@
+﻿@using Umbraco.Cms.Web.Common.PublishedModels;
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+	Layout = null;
+}<!DOCTYPE html>
+<html lang="@System.Threading.Thread.CurrentThread.CurrentCulture.Name">
+<head>
+	<meta charset="utf-8">
+	<title>@Model.Value("metaTitle")</title>
+	<meta content="width=device-width, initial-scale=1" name="viewport">
+	<link href="~/assets/css/normalize.css" rel="stylesheet" type="text/css">
+	<link href="~/assets/css/sakura-dark.css" id="sakura-dark-css" rel="stylesheet" type="text/css">
+	<meta name="description" content="@(Model.Value("metaDescription"))">
+</head>
+<body>
+@RenderBody()
+</body>
+</html>

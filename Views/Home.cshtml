@@ -1,0 +1,142 @@
+﻿@using UmbraCalendar.CosmosDb
+@using HeyRed.MarkdownSharp
+@using UmbraCalendar.Calendar.Models
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<Home>
+@inject ICosmosService CosmosService
+@{
+    Layout = "Main.cshtml";
+    
+    var eventCalendar = new List<CalendarItem>();
+    
+    var upcomingEvents = Model.Children<CalendarEvent>()?.Where(x => x.DateFrom >= DateTime.Today).ToList();
+    var meetups = await CosmosService.GetUpcomingMeetupEvents();
+
+    var mark = new Markdown();
+    foreach (var meetupEvent in meetups)
+    {
+        var fullAddress = "";
+        var country = "";
+        if (meetupEvent.Venue != null)
+        {
+            country = meetupEvent.Venue.Country.ToUpperInvariant();
+            var array = new[] { meetupEvent.Venue.Name, meetupEvent.Venue.Address, meetupEvent.Venue.City, meetupEvent.Venue.Country.ToUpperInvariant() };
+            fullAddress = string.Join(", ", array.Where(s => !string.IsNullOrEmpty(s)));
+        }
+
+        var item = new CalendarItem
+        {
+            Title = meetupEvent.Title,
+            Description = mark.Transform(meetupEvent.Description),
+            Banner = meetupEvent.Image?.Url,
+            Location = fullAddress,
+            DateTimeFrom = DateTime.Parse(meetupEvent.StartDateTime),
+            DateTimeTo = DateTime.Parse(meetupEvent.EndDateTime),
+            StartTimeLocal = meetupEvent.StartTimeLocal,
+            EndTimeLocal = meetupEvent.EndTimeLocal,
+            Url = meetupEvent.EventUrl,
+            OnlineAvailable = meetupEvent.IsOnline,
+            Tags = new List<string>(),
+            Source = "Meetup",
+            Organizer = meetupEvent.Group.Name,
+            Country = country,
+            Going = meetupEvent.Going
+        };
+        eventCalendar.Add(item);
+    }
+
+    if (upcomingEvents != null)
+    {
+        foreach (var calendarEvent in upcomingEvents)
+        {
+            var item = new CalendarItem
+            {
+                Title = calendarEvent.Name,
+                Description = mark.Transform(calendarEvent.Description?.ToString()),
+                Banner = calendarEvent.BannerImage?.MediaUrl(),
+                Location = calendarEvent.EventLocation,
+                DateTimeFrom = calendarEvent.DateFrom,
+                DateTimeTo = calendarEvent.DateTo,
+                Url = calendarEvent.EventLink?.Url,
+                OnlineAvailable = calendarEvent.OnlineAttendance,
+                Tags = (calendarEvent.Tags ?? Array.Empty<string>()).ToList(),
+                Source = "Manual",
+                Country = calendarEvent.Country
+            };
+            eventCalendar.Add(item);
+        }
+    }
+}
+<h1>@Model.Name</h1>
+@if (eventCalendar.Any() == false)
+{
+    <p>No upcoming events</p>
+}
+else
+{
+    foreach (var item in eventCalendar.OrderBy(x => x.DateTimeFrom))
+    {
+        <h4><a href="@item.Url">@item.Title</a></h4>
+        @if (!string.IsNullOrWhiteSpace(item.Organizer))
+        {
+            <h5><img src="~/assets/images/@(item.Source)_Logo.png?height=25" alt="" class="source-logo"/> Organizers: @item.Organizer</h5>
+        }
+        if (!string.IsNullOrWhiteSpace(item.Location) && item.Location != "Online event")
+        {
+            <p class="clear-logo">📍 <strong>Where: </strong><a href="http://maps.google.com/maps?q=@(item.Location)">@item.Location</a></p>
+        }
+        if (!string.IsNullOrWhiteSpace(item.Location) && item.Location == "Online event")
+        {
+            <p class="clear-logo">🌍 <strong>Where: </strong>@item.Location</p>
+        }
+        if (item.Going > 0)
+        {
+            <p class="clear-logo">🤚 People signed up for this event: @item.Going</p>
+        }
+        
+        string fullDateDetails;
+        if (item.Source == "Meetup")
+        {
+            fullDateDetails = $"{item.DateTimeFrom:D} {item.StartTimeLocal}";
+            if (item.IsMultiDay)
+            {
+                fullDateDetails = $"{item.DateTimeFrom:dddd MMMM dd}-{item.DateTimeTo:dd}, {item.DateTimeFrom:yyyy}"; 
+            }
+            else
+            {
+                fullDateDetails += $"-{item.EndTimeLocal}";
+            }
+        }
+        else
+        {
+            fullDateDetails = item.DateTimeFrom.ToString("D");
+            if (item.IsMultiDay)
+            {
+                fullDateDetails = $"{item.DateTimeFrom:dddd MMMM dd}-{item.DateTimeTo:dd}, {item.DateTimeFrom:yyyy}"; 
+            }
+            else if (item.DateTimeFrom != item.DateTimeTo)
+            {
+                fullDateDetails += $" {item.DateTimeFrom:HH:mm}-{item.DateTimeTo:HH:mm}";
+            }
+        }
+        var append = "(local time)";
+        if (!string.IsNullOrWhiteSpace(item.Country))
+        {
+            append = "(local time in " + item.Country + ")";
+        }
+        
+        <p class="clear-logo">⏰ <strong>When: </strong> @fullDateDetails <small><em>@append</em></small></p>
+        <details>
+            <summary><em>Toggle event description</em></summary>
+            <p>@Html.Raw(item.Description)</p>
+        </details>
+        <br />
+        <p>
+            <img src="@item.Banner" alt="" />
+        </p>
+        <hr />
+        
+        <Navigation />
+    }
+}
+
+

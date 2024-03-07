@@ -1,0 +1,26 @@
+﻿[
+  {
+    "Name": "United Kingdom",
+    "Code": "UK"
+  },
+  {
+    "Name": "United States of America",
+    "Code": "USA"
+  },
+  {
+    "Name": "Nordics",
+    "Code": "NORDICS"
+  },
+  {
+    "Name": "Belgium, Netherlands, Luxembourg",
+    "Code": "BENELUX"
+  },
+  {
+    "Name": "Rest of world",
+    "Code": "ROW"
+  },
+  {
+    "Name": "Virtual",
+    "Code": "VIRTUAL"
+  }
+]

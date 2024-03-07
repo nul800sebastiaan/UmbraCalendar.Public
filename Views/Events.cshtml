@@ -1,0 +1,229 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<Events>
+@using UmbraCalendar.CosmosDb
+@using UmbraCalendar.Meetup
+@using UmbraCalendar.Meetup.Models.Groups
+@inject ICosmosService CosmosService
+@inject IMeetupService MeetupService
+@{
+    Layout = "Main.cshtml";
+
+    var monthsBack = 15;
+    if (!string.IsNullOrWhiteSpace(Context.Request.Query["monthsBack"]))
+    {
+        int.TryParse(Context.Request.Query["monthsBack"], out monthsBack);
+    }
+    
+    var availableAreas = await MeetupService.GetAvailableAreas();
+    var meetupAreas = availableAreas.ToList();
+    var events = await CosmosService.GetAllMeetupEvents(DateTime.Now.AddMonths(-monthsBack));
+    var currentGroups = await CosmosService.GetMeetupGroups();
+    var activeGroups = new HashSet<MeetupGroup>();
+    
+    foreach (var group in currentGroups.Where(x => events.Any(y => y.Group.UrlName == x.Urlname)))
+    {
+        if (events.Count(x => x.Group.UrlName == group.Urlname) > 1)
+        {
+            activeGroups.Add(group);
+        }
+    }
+    
+    var otherGroups = new HashSet<MeetupGroup>();
+    foreach (var meetupGroup in currentGroups.Where(meetupGroup => activeGroups.Any(x => x.Urlname == meetupGroup.Urlname) == false))
+    {
+        otherGroups.Add(meetupGroup);
+    }
+}
+
+<style>
+    .highlight {
+        color: red;      
+    }
+	td {
+	    vertical-align: top;
+	}
+	body {
+	    max-width: 70%;
+	}
+</style>
+
+@if (currentGroups.Any(x => string.IsNullOrWhiteSpace(x.Area)))
+{
+    <h2 class="highlight">Groups without known area</h2>
+    
+    <ul>
+        @foreach (var group in currentGroups.Where(x => string.IsNullOrWhiteSpace(x.Area)))
+        {
+            <li><a href="https://www.meetup.com/@group.Urlname" target="_blank" class="highlight">@group.Urlname</a></li>
+        }
+    </ul>
+}
+
+<h2>Monthly stats - Attendees</h2>
+<table>
+    <th nowrap="nowrap">Year / month</th>
+    <th nowrap="nowrap">Total attendees</th>
+    @foreach (var area in meetupAreas)
+    {
+        <th nowrap="nowrap">@area.Code</th>
+    }
+    @{
+        foreach (var meetupEventGroups in events
+                     .OrderBy(x => DateTime.Parse(x.StartDateLocal))
+                     .GroupBy(x => DateTime.Parse(x.StartDateLocal).ToString("yyyyMM")))
+        {
+            var meetupEventAttendees = meetupEventGroups.Sum(meetupEvent => meetupEvent.Going);
+            <tr>
+                <td nowrap="nowrap">@meetupEventGroups.Key.Substring(0, 4)-@meetupEventGroups.Key.Substring(4)</td>
+                <td>@meetupEventAttendees</td>
+                @foreach (var area in meetupAreas)
+                {
+                    var areaAttendees = 0;
+                    foreach (var meetupEvent in meetupEventGroups.Where(x => x.Group.Area == area.Code))
+                    {
+                        areaAttendees += meetupEvent.Going;
+                    }
+
+                    <td>@areaAttendees</td>
+                }
+            </tr>
+        }
+    }
+</table>
+<br/><br/>
+
+<h2>Monthly stats - Events</h2>
+<table>
+    <th nowrap="nowrap">Year / month</th>
+    <th nowrap="nowrap">Total Events</th>
+    @foreach (var area in meetupAreas)
+    {
+        <th nowrap="nowrap">@area.Code</th>
+    }
+    @{
+        foreach (var meetupEventGroups in events
+                     .OrderBy(x => DateTime.Parse(x.StartDateLocal))
+                     .GroupBy(x => DateTime.Parse(x.StartDateLocal).ToString("yyyyMM")))
+        {
+            <tr>
+                <td nowrap="nowrap">@meetupEventGroups.Key.Substring(0, 4)-@meetupEventGroups.Key.Substring(4)</td>
+                <td>@meetupEventGroups.Count()</td>
+                @foreach (var areaEvents in meetupAreas.Select(area => meetupEventGroups.Count(x => x.Group.Area == area.Code)))
+                {
+                    <td>@areaEvents</td>
+                }
+            </tr>
+        }
+    }
+</table>
+<br/><br/>
+<h2>Yearly stats - Attendees</h2>
+<table>
+    <th>Year</th>
+    <th nowrap="nowrap">Total Attendees</th>
+    @foreach (var area in meetupAreas)
+    {
+        <th>@area.Code</th>
+    }
+    @{
+        foreach (var meetupEventGroups in events
+                     .OrderBy(x => DateTime.Parse(x.StartDateLocal))
+                     .GroupBy(x => DateTime.Parse(x.StartDateLocal).ToString("yyyy")))
+        {
+            var meetupEventAttendees = meetupEventGroups.Sum(meetupEvent => meetupEvent.Going);
+
+            <tr>
+                <td>@meetupEventGroups.Key</td>
+                <td>@meetupEventAttendees</td>
+                @foreach (var area in meetupAreas)
+                {
+                    var areaAttendees = meetupEventGroups.Where(x => x.Group.Area == area.Code).Sum(meetupEvent => meetupEvent.Going);
+                    <td>@areaAttendees</td>
+                }
+            </tr>
+        }
+    }
+</table>
+
+<br/><br/>
+
+<h2>Yearly stats - Events</h2>
+<table>
+    <th>Year</th>
+    <th nowrap="nowrap">Total Events</th>
+    @foreach (var area in meetupAreas)
+    {
+        <th>@area.Code</th>
+    }
+    @{
+        foreach (var meetupEventGroups in events
+                     .OrderBy(x => DateTime.Parse(x.StartDateLocal))
+                     .GroupBy(x => DateTime.Parse(x.StartDateLocal).ToString("yyyy")))
+        {
+            var meetupEventsCount = meetupEventGroups.Count();
+            <tr>
+                <td>@meetupEventGroups.Key</td>
+                <td>@meetupEventsCount</td>
+                @foreach (var area in meetupAreas)
+                {
+                    var areaEvents = meetupEventGroups.Count(x => x.Group.Area == area.Code);
+                    <td>@areaEvents</td>
+                }
+            </tr>
+        }
+    }
+</table>
+
+<br /><br />
+
+<h2>Active groups</h2>
+<ul>
+    <li>Groups with more than 1 event in the last @monthsBack months: @activeGroups.Count</li>
+</ul>
+<table>
+    <th>Group</th>
+    <th>Events</th>
+    <th>Attendees</th>
+
+    @foreach (var group in activeGroups)
+    {
+        var meetupEvents = events.Where(x => x.Group.UrlName == group.Urlname).ToList();
+        var attendeeCount = meetupEvents.Sum(meetupEvent => meetupEvent.Going);
+        <tr>
+            <td>
+                <p><strong><a href="https://www.meetup.com/@group.Urlname" target="_blank">@group.Urlname</a></strong></p>
+                <ul>
+                @foreach (var meetup in meetupEvents)
+                {
+                    <li>@meetup.StartDateLocal <a href="@meetup.EventUrl" target="_blank">@meetup.Title</a></li>
+                }
+                </ul>
+            </td>
+            <td>@meetupEvents.Count</td>
+            <td>@attendeeCount</td>
+        </tr>
+    }
+</table>
+
+<br/><br/>
+
+<h2>Inactive / not yet active groups</h2>
+<ul>
+    <li>Groups with fewer than 2 event in the last @monthsBack months: @otherGroups.Count</li>
+</ul>
+<ul>
+    @foreach (var group in otherGroups)
+    {
+        var meetupEvents = events.Where(x => x.Group.UrlName == group.Urlname).ToList();
+        var lastEvents = meetupEvents.OrderByDescending(x => x.StartDateLocal).Take(2);
+
+        <li>
+            <a href="https://www.meetup.com/@group.Urlname" target="_blank">@group.Urlname</a><br />
+            Total events: @meetupEvents.Count<br />
+            Last events: <br/>
+            @foreach (var meetupEvent in lastEvents)
+            {
+                <span>@meetupEvent.StartDateLocal - <a href="@meetupEvent.EventUrl" target="_blank">@meetupEvent.Title</a></span><br/>
+            }
+        </li>
+    }
+</ul>

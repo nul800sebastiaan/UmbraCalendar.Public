@@ -1,0 +1,29 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<UmbraCalendar.Meetup.Models.Groups.AddInfoOverviewModel>
+@{
+    Layout = "Main.cshtml";
+}
+
+<h2>Meetup groups without area</h2>
+<ul>
+    @foreach (var group in Model.MeetupGroups.Where(x => string.IsNullOrEmpty(x.Area)))
+    {
+        <li>
+            <a href="@(Model.Url())?altTemplate=MeetupAddInfo&id=@group.id">@group.Name @group.id</a>
+        </li>
+    }
+</ul>
+
+<h2>Meetup groups with area</h2>
+
+@foreach (var area in Model.MeetupGroups.Where(x => !string.IsNullOrEmpty(x.Area)).GroupBy(x => x.Area))
+{
+    <h3>@area.Key</h3>
+    <ul>
+        @foreach (var group in area)
+        {
+            <li>
+                <a href="@(Model.Url())?altTemplate=MeetupAddInfo&id=@group.id">@group.Name</a>
+            </li>
+        }
+    </ul>
+}
