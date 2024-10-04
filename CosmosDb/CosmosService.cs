@@ -1,31 +1,34 @@
 ﻿using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
+using System.Net;
 using UmbraCalendar.Meetup;
 using UmbraCalendar.Meetup.Models.Events;
 using UmbraCalendar.Meetup.Models.Groups;
 using Umbraco.Cms.Core.Cache;
 
 namespace UmbraCalendar.CosmosDb;
-
 public class CosmosService : ICosmosService
 {
     private readonly string _databaseId;
     private readonly Options _config;
+    private readonly ILogger<CosmosService> _logger;
     private readonly IAppPolicyCache _runtimeCache;
     private const int CacheTimespanShort = 5;
     private const int CacheTimespanMedium = 60;
     private const int CacheTimespanLong = 60 * 4;
     
     public CosmosService(
+        ILogger<CosmosService> logger,
         IOptions<Options> config,
         IAppPolicyCache runtimeCache)
     {
+        _logger = logger;
         _runtimeCache = runtimeCache;
         _config = config.Value;
         _databaseId = "CoreCollab";
-    }
+	}
 
-    public async Task<ItemResponse<T>> UpsertItemAsync<T>(T item, string containerId)
+	public async Task<ItemResponse<T>> UpsertItemAsync<T>(T item, string containerId)
     {
         using var client = new CosmosClient(
             _config.CosmosDbEndpoint,
@@ -39,6 +42,21 @@ public class CosmosService : ICosmosService
     public Task<List<MeetupEvent>> GetUpcomingMeetupEvents()
     {
         const string cacheKey = "UpcomingMeetupEvents";
+
+        try
+        {
+            var credentialsValid = CheckCredentials().Result;
+            if (!credentialsValid)
+            {
+                return Task.FromResult(new List<MeetupEvent>());
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "error checking credentials for Cosmos", ex.Message);
+            Console.WriteLine($"CosmosException: {ex.Message}");
+            return Task.FromResult(new List<MeetupEvent>());
+        }
 
         return _runtimeCache.GetCacheItem(cacheKey, async () =>
         {
@@ -119,5 +137,30 @@ public class CosmosService : ICosmosService
             
             return meetupEvents.ToList();
         }, TimeSpan.FromMinutes(CacheTimespanLong)) ?? Task.FromResult(new List<MeetupEvent>());
+    }
+
+    private async Task<bool> CheckCredentials()
+    {
+        try
+        {
+            using var client = new CosmosClient(
+                _config.CosmosDbEndpoint,
+                _config.CosmosDbMasterKey);
+
+            await client.GetDatabase(_databaseId).ReadAsync();
+            return true;
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // Handle unauthorized access exception here
+            Console.WriteLine("Invalid Cosmos DB credentials.");
+            return false;
+        }
+        catch (FormatException ex)
+        {
+            // Handle other Cosmos DB exceptions here
+            Console.WriteLine($"CosmosException: {ex.Message}");
+            throw; // Rethrow the exception if needed
+        }
     }
 }
