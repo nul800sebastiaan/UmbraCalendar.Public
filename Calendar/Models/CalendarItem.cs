@@ -5,6 +5,8 @@ public class CalendarItem
     public string Title { get; set; }
     public string Description { get; set; }
     public string? Banner { get; set; }
+    public string? EventIcon { get; set; }
+    public string? EventHost { get; set; }
     public string? Location { get; set; }
     public DateTime DateTimeFrom { get; set; }
     public DateTime DateTimeTo { get; set; }

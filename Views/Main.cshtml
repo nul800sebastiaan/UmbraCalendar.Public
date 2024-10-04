@@ -8,11 +8,15 @@
 	<meta charset="utf-8">
 	<title>@Model.Value("metaTitle")</title>
 	<meta content="width=device-width, initial-scale=1" name="viewport">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
 	<link href="~/assets/css/normalize.css" rel="stylesheet" type="text/css">
-	<link href="~/assets/css/sakura-dark.css" id="sakura-dark-css" rel="stylesheet" type="text/css">
+	@* <link href="~/assets/css/sakura-dark.css" id="sakura-dark-css" rel="stylesheet" type="text/css"> *@
+	<link href="~/assets/css/main.css" id="main-css" rel="stylesheet" type="text/css">
 	<meta name="description" content="@(Model.Value("metaDescription"))">
 </head>
-<body>
-@RenderBody()
-</body>
+	<body>
+		@RenderBody()
+	</body>
 </html>

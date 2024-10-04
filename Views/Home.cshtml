@@ -5,11 +5,12 @@
 @inject ICosmosService CosmosService
 @{
     Layout = "Main.cshtml";
-    
+
     var eventCalendar = new List<CalendarItem>();
-    
+        
     var upcomingEvents = Model.Children<CalendarEvent>()?.Where(x => x.DateFrom >= DateTime.Today).ToList();
     var meetups = await CosmosService.GetUpcomingMeetupEvents();
+    @* var meetups = new List<UmbraCalendar.Meetup.Models.Events.MeetupEvent>(); *@
 
     var mark = new Markdown();
     foreach (var meetupEvent in meetups)
@@ -53,6 +54,8 @@
                 Title = calendarEvent.Name,
                 Description = mark.Transform(calendarEvent.Description?.ToString()),
                 Banner = calendarEvent.BannerImage?.MediaUrl(),
+                EventHost = calendarEvent.EventHost,
+                EventIcon = calendarEvent.EventIcon?.MediaUrl(),
                 Location = calendarEvent.EventLocation,
                 DateTimeFrom = calendarEvent.DateFrom,
                 DateTimeTo = calendarEvent.DateTo,
@@ -66,77 +69,127 @@
         }
     }
 }
-<h1>@Model.Name</h1>
-@if (eventCalendar.Any() == false)
-{
-    <p>No upcoming events</p>
-}
-else
-{
-    foreach (var item in eventCalendar.OrderBy(x => x.DateTimeFrom))
-    {
-        <h4><a href="@item.Url">@item.Title</a></h4>
-        @if (!string.IsNullOrWhiteSpace(item.Organizer))
+<main>
+    <h1>@Model.Name</h1>
+    <section class="timeline">
+        @if (eventCalendar.Any() == false)
         {
-            <h5><img src="~/assets/images/@(item.Source)_Logo.png?height=25" alt="" class="source-logo"/> Organizers: @item.Organizer</h5>
-        }
-        if (!string.IsNullOrWhiteSpace(item.Location) && item.Location != "Online event")
-        {
-            <p class="clear-logo">📍 <strong>Where: </strong><a href="http://maps.google.com/maps?q=@(item.Location)">@item.Location</a></p>
-        }
-        if (!string.IsNullOrWhiteSpace(item.Location) && item.Location == "Online event")
-        {
-            <p class="clear-logo">🌍 <strong>Where: </strong>@item.Location</p>
-        }
-        if (item.Going > 0)
-        {
-            <p class="clear-logo">🤚 People signed up for this event: @item.Going</p>
-        }
-        
-        string fullDateDetails;
-        if (item.Source == "Meetup")
-        {
-            fullDateDetails = $"{item.DateTimeFrom:D} {item.StartTimeLocal}";
-            if (item.IsMultiDay)
-            {
-                fullDateDetails = $"{item.DateTimeFrom:dddd MMMM dd}-{item.DateTimeTo:dd}, {item.DateTimeFrom:yyyy}"; 
-            }
-            else
-            {
-                fullDateDetails += $"-{item.EndTimeLocal}";
-            }
+            <p>No upcoming events</p>
         }
         else
         {
-            fullDateDetails = item.DateTimeFrom.ToString("D");
-            if (item.IsMultiDay)
+            foreach (var item in eventCalendar.OrderBy(x => x.DateTimeFrom))
             {
-                fullDateDetails = $"{item.DateTimeFrom:dddd MMMM dd}-{item.DateTimeTo:dd}, {item.DateTimeFrom:yyyy}"; 
-            }
-            else if (item.DateTimeFrom != item.DateTimeTo)
-            {
-                fullDateDetails += $" {item.DateTimeFrom:HH:mm}-{item.DateTimeTo:HH:mm}";
+                <div class="timeline-row">
+                    <div class="date">
+                        @{
+                            string dateDetails;
+                            string dayDetails;
+
+                            if(item.Source == "Meetup") {
+                                dayDetails = $"{item.DateTimeFrom:dddd}";
+                                dateDetails = $"{item.DateTimeFrom:dd MMMM}";
+                                
+                                if (item.IsMultiDay) {
+                                    dateDetails = $"{item.DateTimeFrom:dd}-{item.DateTimeTo:dd MMMM}";
+                                }
+                            }
+                            else {
+                                dayDetails = item.DateTimeFrom.ToString("dddd");
+                                dateDetails = item.DateTimeFrom.ToString("dd MMMM");
+
+                                if (item.IsMultiDay) {
+                                    dateDetails = $"{item.DateTimeFrom:dd}-{item.DateTimeTo:dd MMMM}";
+                                }
+                            }
+                            <h2><span class="day">@dayDetails</span>
+                                @dateDetails
+                            </h2>
+                        }
+                    </div>
+                    <div class="events">
+                        <div class="event">
+                            @if (!string.IsNullOrWhiteSpace(item.Organizer))
+                            {
+                                <img src="~/assets/images/@(item.Source)_Logo.png?height=25" alt="" class="source-logo" />
+                            }
+
+                            @if (item.EventIcon != null) {
+                                <img class="event-icon" src="@item.EventIcon" width="40" alt="" />
+                            }
+                            <div class="event-desc">
+                                @if (!string.IsNullOrWhiteSpace(item.Organizer))
+                                {
+                                    <h3 class="event-organizer">@item.Organizer</h3>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(item.EventHost)) {
+                                    <h3 class="event-organizer">@item.EventHost</h3>
+                                }
+                                <h4 class="event-title"><a href="@item.Url">@item.Title</a></h4>
+
+                                @{
+                                    string fullTimeDetails;
+                                    if (item.Source == "Meetup") {
+                                        fullTimeDetails = $"{item.StartTimeLocal}-{item.EndTimeLocal}";
+                                    }
+                                    else {
+                                        if (!item.IsMultiDay) {
+                                            fullTimeDetails = $"{item.DateTimeFrom.ToString("HH:mm")}-{item.DateTimeTo.ToString("HH:mm")}";
+                                        }
+                                        else {
+                                            fullTimeDetails = "";
+                                        }
+                                    }
+                                    var append = "Local time";
+                                    if (!string.IsNullOrWhiteSpace(item.Country))
+                                    {
+                                        append = "Local time in " + item.Country;
+                                    }
+                                }
+                                <div class="event-time">
+                                    @* options are:
+                                        data-attendance-type="in-person" In Person
+                                        data-attendance-type="virtual" Virtual
+                                        data-attendance-type="hybrid" Hybrid
+                                    *@
+                                    <span class="flag" data-attendance-type="in-person">In Person</span>
+                                    <p>@fullTimeDetails @append</p>
+                                </div>
+                                <details>
+                                    <summary>Full Details</summary>
+                                    <div>
+                                        @if (!string.IsNullOrWhiteSpace(item.Location) && item.Location != "Online event") {
+                                            <p class="event-location">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M480-480q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Zm0 400Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Z"/></svg>
+                                                <a href="http://maps.google.com/maps?q=@(item.Location)">@item.Location</a>
+                                            </p>
+                                        }
+
+                                        @if (!string.IsNullOrWhiteSpace(item.Location) && item.Location == "Online event")
+                                        {
+                                            <p class="event-location">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M480-480q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Zm0 400Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880q127 0 223.5 89T800-552q0 100-79.5 217.5T480-80Z"/></svg>
+                                                @item.Location
+                                            </p>
+                                        }
+
+                                        @if (item.Going > 0)
+                                        {
+                                            <p class="event-rsvp">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"><path d="M80-40v-80h800v80H80Zm80-120v-240q-33-54-51-114.5T91-638q0-61 15.5-120T143-874q8-21 26-33.5t40-12.5q31 0 53 21t18 50l-11 91q-6 48 8.5 91t43.5 75.5q29 32.5 70 52t89 19.5q60 0 120.5 12.5T706-472q45 23 69.5 58.5T800-326v166H400v-37q0-34 23-58.5t57-24.5h160v-80H480q-67 0-113.5 48T320-197v37H160Zm320-400q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47Z"/></svg> 
+                                                @item.Going RSVPed
+                                            </p>
+                                        }
+                                        <hr />
+                                        <p>@Html.Raw(item.Description)</p>
+                                        <img src="@item.Banner" alt="" />
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             }
         }
-        var append = "(local time)";
-        if (!string.IsNullOrWhiteSpace(item.Country))
-        {
-            append = "(local time in " + item.Country + ")";
-        }
-        
-        <p class="clear-logo">⏰ <strong>When: </strong> @fullDateDetails <small><em>@append</em></small></p>
-        <details>
-            <summary><em>Toggle event description</em></summary>
-            <p>@Html.Raw(item.Description)</p>
-        </details>
-        <br />
-        <p>
-            <img src="@item.Banner" alt="" />
-        </p>
-        <hr />
-        
-        <Navigation />
-    }
-}
-
-
+    </section>
+</main>
